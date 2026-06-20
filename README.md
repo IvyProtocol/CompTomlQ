@@ -19,6 +19,9 @@ Bash:
 export NAME="TOML Project"
 export ENABLED=true
 export VERSION=1.0
+
+export MAX_CONNECTIONS=5000
+export TIMEOUT=30.5
 ```
 
 # Tables
