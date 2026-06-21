@@ -47,14 +47,19 @@ inline constexpr TokenType findKeywordOrIdentifier(std::string_view Toks)
     KeyWords.begin(),
     KeyWords.end(),
     Toks,
-    [](const KeywordPair &pair, std::string_view value)
-    {
+    [](
+      const KeywordPair &pair,
+      std::string_view value
+    ) -> bool {
       return pair.text < value;
     }
   );
 
-  if (it != KeyWords.end() && it->text == Toks)
-    return it->type;
+  if
+  (
+    it != KeyWords.end() &&
+    it->text == Toks
+  ) return it->type;
 
   return TokenType::Identifier;
 }

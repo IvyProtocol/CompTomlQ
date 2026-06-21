@@ -27,8 +27,10 @@ namespace TOML
 
   auto Parser::Peek() const noexcept -> Token::TokenType
   {
-    if (this->Cursor_ >= this->Toks_.size())
-      return Token::TokenType::EndOfFile;
+    if
+    (
+      this->Cursor_ >= this->Toks_.size()
+    ) return Token::TokenType::EndOfFile;
 
     return this->Toks_[this->Cursor_].Type;
   }
@@ -41,8 +43,10 @@ namespace TOML
 
   auto Parser::StartOfStatement() const noexcept -> bool
   {
-    if (this->Cursor_ >= this->Toks_.size())
-      return true;
+    if
+    (
+      this->Cursor_ >= this->Toks_.size()
+    ) return true;
 
     const auto Type = this->Toks_[this->Cursor_].Type;
 
@@ -52,9 +56,13 @@ namespace TOML
       Type == Token::TokenType::EndOfFile
     ) return true;
 
-    if (Type == Token::TokenType::Identifier)
-      if (this->Cursor_ + 1 < this->Toks_.size())
-        return this->Toks_[this->Cursor_ + 1].Type == Token::TokenType::Assign;
+    if
+    (
+      Type == Token::TokenType::Identifier
+    ) if
+      (
+        this->Cursor_ + 1 < this->Toks_.size()
+      ) return this->Toks_[this->Cursor_ + 1].Type == Token::TokenType::Assign;
 
     return false;
   }
@@ -65,6 +73,7 @@ namespace TOML
     std::string_view Msg
   ) const noexcept -> void
   {
+
     std::println
     (
       stderr,
@@ -112,8 +121,10 @@ namespace TOML
 
     std::string Underline = "^";
 
-    if (Tokens.Sv_Val_.length() > 1)
-      Underline.append(Tokens.Sv_Val_.length() - 1, '~');
+    if
+    (
+      Tokens.Sv_Val_.length() > 1
+    ) Underline.append(Tokens.Sv_Val_.length() - 1, '~');
 
     std::println
     (
@@ -133,8 +144,10 @@ namespace TOML
     bool IsArrayOfTable = false;
 
 
-    if (this->Peek() == Token::TokenType::LeftBracket)
-    {
+    if
+    (
+      this->Peek() == Token::TokenType::LeftBracket
+    ) {
       this->Consume();
       IsArrayOfTable = true;
     }
@@ -147,23 +160,29 @@ namespace TOML
     (
       this->Peek() != Token::TokenType::RightBracket &&
       this->Peek() != Token::TokenType::EndOfFile
-    )
-    {
+    ) {
       const auto& Tok = this->Consume();
       EndOffset = Tok.Lexer_Size_t_Offset_ + Tok.Sv_Val_.length();
     }
 
     std::string_view ka_NameTok = this->Sv_SourceView_.substr(StartOffset, EndOffset - StartOffset);
 
-    if (this->Peek() != Token::TokenType::RightBracket)
-      this->ReportError(this->Toks_[this->Cursor_], "Expected closing ']' for group");
+    if
+    (
+      this->Peek() != Token::TokenType::RightBracket
+    ) this->ReportError(this->Toks_[this->Cursor_], "Expected closing ']' for group");
 
     this->Consume();
 
-    if (IsArrayOfTable)
-    {
-      if (this->Peek() != Token::TokenType::RightBracket)
-        this->ReportError(this->Toks_[this->Cursor_], "Expected second closing ']' for array of tables.");
+    if
+    (
+      IsArrayOfTable
+    ) {
+
+      if
+      (
+        this->Peek() != Token::TokenType::RightBracket
+      ) this->ReportError(this->Toks_[this->Cursor_], "Expected second closing ']' for array of tables.");
 
       this->Consume();
     }
@@ -178,8 +197,10 @@ namespace TOML
 
     const auto ka_NewTableIdx_ = this->Arena_.EmplaceNode(std::move(TablePayLoad));
 
-    if (this->RootTableIdx == NodeIdx::None)
-      this->RootTableIdx = ka_NewTableIdx_;
+    if
+    (
+      this->RootTableIdx == NodeIdx::None
+    ) this->RootTableIdx = ka_NewTableIdx_;
 
     else [[
       /* nullAttr*/
@@ -188,167 +209,367 @@ namespace TOML
     this->LastTableIdx = ka_NewTableIdx_;
   }
 
-  auto Parser::ParseKeyValue() noexcept -> void
+
+  auto Parser::ParseArray(std::string_view KeyToken) noexcept -> NodeIdx
   {
-    if (this->LastTableIdx == NodeIdx::None)
-      this->ReportError(this->Toks_[this->Cursor_], "Key-value pair declared outside of a group block.");
-
-    const auto& KeyToken = this->Consume();
-
-    if (this->Peek() != Token::TokenType::Assign)
-      this->ReportError(this->Toks_[this->Cursor_], "Expected '=' operator after key identifier");
 
     this->Consume();
 
-    if (this->Peek() == Token::TokenType::LeftBracket)
+    KeyValueNode KeyPayload
     {
-      this->Consume();
+      .Key = KeyToken,
+      .Value = "",
+      .TypeDisc = 4,
+      ._pad = {}
+    };
+    const auto KeyValueIdx = this->Arena_.EmplaceNode(std::move(KeyPayload));
 
-      KeyValueNode KeyPayload
-      {
-        .Key = KeyToken.Sv_Val_,
-        .Value = "",
-        .TypeDisc = 4,
-        ._pad = {}
-      };
+    ArrayNode ArrayPayload { .FirstChildIndx = NodeIdx::None };
+    const auto ArrayIndx = this->Arena_.EmplaceNode(std::move(ArrayPayload));
 
-      const auto KeyValueIdx = this->Arena_.EmplaceNode(std::move(KeyPayload));
-      auto& A_TableNode = this->Arena_.GetNode(this->LastTableIdx);
-      auto& TableData = std::get<TableNode>(A_TableNode.Payload);
+    this->Arena_.GetNode(KeyValueIdx).NextSiblingIndx = ArrayIndx;
 
-      if (TableData.FirstChildIndx == NodeIdx::None)
-        TableData.FirstChildIndx = KeyValueIdx;
+    while
+    (
+      this->Peek() != Token::TokenType::RightBracket &&
+      this->Peek() != Token::TokenType::EndOfFile
+    ) {
 
-      else
-      {
-        auto Current = TableData.FirstChildIndx;
-
-        while (this->Arena_.GetNode(Current).NextSiblingIndx != NodeIdx::None)
-          Current = this->Arena_.GetNode(Current).NextSiblingIndx;
-
-        this->Arena_.GetNode(Current).NextSiblingIndx = KeyValueIdx;
-      }
-
-      ArrayNode ArrayPayload { .FirstChildIndx = NodeIdx::None };
-      const auto ArrayIndx = this->Arena_.EmplaceNode(std::move(ArrayPayload));
-      this->Arena_.GetNode(KeyValueIdx).NextSiblingIndx = ArrayIndx;
-
-      NodeIdx LastElementIdx = NodeIdx::None;
+      const auto ElementIdx = this->ParseValue("");
 
 
-      while
-      (
-        this->Peek() != Token::TokenType::RightBracket &&
-        this->Peek() != Token::TokenType::EndOfFile
-      )
-      {
-        const auto& ElementToken  = this->Consume();
-        KeyValueNode ElementPayload
-        {
-          .Key = "",
-          .Value = ElementToken.Sv_Val_,
-          .TypeDisc = static_cast<std::uint32_t>(ElementToken.Type),
-          ._pad = {}
-        };
+    /*
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      After taking some breaks... Maybe one or two days.. I was having hard
+      time understanding my own code.. It is unusual but number one cause may
+      be the terrible naming conventions. But anyway.
 
-        const auto ElementIdx = this->Arena_.EmplaceNode(std::move(ElementPayload));
-        auto& A_ArrayNode = this->Arena_.GetNode(ArrayIndx);
-        auto& ArrayData = std::get<ArrayNode>(A_ArrayNode.Payload);
+      For the future me who may forget what this is... Let me write this:
 
-        if (ArrayData.FirstChildIndx == NodeIdx::None)
-          ArrayData.FirstChildIndx = ElementIdx;
+      Let us say the Parent Table which we imagine as a teacher, leading a group
+      of Kindergateners holdings hands in a line.
 
-        else [[
-          /*nullAttr*/
-        ]] this->Arena_.GetNode(LastElementIdx).NextSiblingIndx = ElementIdx;
+      * The Teacher only holds the hand of the first Kid (FirstChildIndx)
+      * The Teacher does NOT know who is at the end of the line.
+      * Each kid only holds the hand of the next kid in line (NextSiblingIndx)
 
-        LastElementIdx = ElementIdx;
+      If a new kid shows up to join the group, the teacher can't just put them
+      at the end of the line directly. The teacher has to look at the first kid,
+      trace down the line of hands one by one until the teacher finds the kid
+      who isn't holding anyone's hand and tell that kid to grab the new kid's
+      hand.
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    */
 
-        if
-        (
-          this->Peek() == Token::TokenType::Comma
-        )
-        {
-          this->Consume();
+      auto& A_ArrayNode = this->Arena_.GetNode(ArrayIndx);
+      auto& ArrayData = std::get<ArrayNode>(A_ArrayNode.Payload);
 
-          if (this->Peek() == Token::TokenType::RightBracket)
-            this->ReportError(this->Toks_[this->Cursor_], "Expected another array element but got ']'");
-        }
-        else if
-        (
-          this->Peek() == Token::TokenType::RightBracket
-        ) break;
-        else [[
-          /* nullAttr */
-        ]] this->ReportError(this->Toks_[this->Cursor_], "Expected ',' or ']' after array elements.");
-      }
-
-      if (this->Peek() != Token::TokenType::RightBracket)
-        this->ReportError(this->Toks_[this->Cursor_], "Unterminated array block, missing closing ']'");
-
-      this->Consume();
-
-
-    } else
-    {
-      const auto& StartValueToken = this->Toks_[this->Cursor_];
+    /*
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      First, we look for the teacher. We look up the last [Group] we parsed and
+      pull out its data so we can look at it.
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    */
 
       if
       (
-        StartValueToken.Type == Token::TokenType::EndOfFile ||
-        this->StartOfStatement()
-      ) this->ReportError(StartValueToken, "Missing value assignment after '='");
+        ArrayData.FirstChildIndx == NodeIdx::None
+      ) ArrayData.FirstChildIndx = ElementIdx;
 
-      const size_t StartOffset = StartValueToken.Lexer_Size_t_Offset_;
-      size_t EndOffset = StartOffset + StartValueToken.Sv_Val_.length();
+    /*
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      Does the teacher have any kids yet? (Is FirstChildIndx empty!?).
+      If no, then the teacher grabs the new kid's hand directly. The new key
+      (KeyValueIdx) becomes the very first child. We are done here.
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    */
 
+      else [[
+        /*nullAttr*/
+      ]] {
+        NodeIdx Current = ArrayData.FirstChildIndx;
 
-      while
-      (
-        !this->StartOfStatement() &&
-        this->Peek() != Token::TokenType::EndOfFile
-      )
-      {
-        const auto& ka_ContentToken_ = this->Consume();
-        EndOffset = ka_ContentToken_.Lexer_Size_t_Offset_ + ka_ContentToken_.Sv_Val_.length();
-      }
+      /*
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        If the teacher already has kids in line, we have to find the end of the
+        line. To do that, we start by looking at the very first kid. We assign
+        them to our tracking variable called 'Current'.
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      */
 
-      const auto CombinedLength = EndOffset - StartOffset;
-
-      std::string_view ValueView = this->Sv_SourceView_.substr(StartOffset, CombinedLength);
-
-      KeyValueNode ValuePayload
-      {
-        .Key = KeyToken.Sv_Val_,
-        .Value = ValueView,
-        .TypeDisc = static_cast<std::uint32_t>(StartValueToken.Type),
-        ._pad = {}
-      };
-
-      const auto KeyValueIdx = this->Arena_.EmplaceNode(std::move(ValuePayload));
-
-      auto& A_TableNode = this->Arena_.GetNode(this->LastTableIdx);
-      auto& TableData = std::get<TableNode>(A_TableNode.Payload);
-
-      if (TableData.FirstChildIndx == NodeIdx::None)
-        TableData.FirstChildIndx = KeyValueIdx;
-
-      else
-      {
-        auto Current = TableData.FirstChildIndx;
         while
         (
           this->Arena_.GetNode(Current).NextSiblingIndx != NodeIdx::None
         ) Current = this->Arena_.GetNode(Current).NextSiblingIndx;
 
-        this->Arena_.GetNode(Current).NextSiblingIndx = KeyValueIdx;
+      /*
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        it is a while loop that translates to:
+          "
+            While the 'Current' kid is holding someone else's hand
+            (NextSiblingIndx is NOT None), move our focus to that next kid.
+          "
+
+        It iterates over and over, hopping from kid to kid, until it finally
+        lands on a kid whose 'NextSiblingIndx' is None. That means we've
+        successfully found the last kid in line.
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      */
+
+        this->Arena_.GetNode(Current).NextSiblingIndx = ElementIdx;
+
+      /*
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        Now that 'Current' is officially the last kid in line, we give them an
+        instruction:
+          "
+            Hey, your 'NextSiblingIndx' is now this new key (KeyValueIdx).
+          "
+
+        The new node is now successfully attached to the end of the chain.
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      */
+
       }
+
+      if
+      (
+        this->Peek() == Token::TokenType::Comma
+      ) {
+        this->Consume();
+
+        if
+        (
+          this->Peek() == Token::TokenType::RightBracket
+        ) this->ReportError(this->Toks_[this->Cursor_], "Expected another array element but got ']'");
+
+      }
+
+      else if
+      (
+        this->Peek() == Token::TokenType::RightBracket
+      ) break;
+
+      else [[
+        /* nullAttr */
+      ]] this->ReportError(this->Toks_[this->Cursor_], "Expected ',' or ']' after array elements.");
+    }
+
+    if
+    (
+      this->Peek() != Token::TokenType::RightBracket
+    ) this->ReportError(this->Toks_[this->Cursor_], "Unterminated array block, missing closing ']'");
+
+    this->Consume();
+
+    return KeyValueIdx;
+  }
+
+  auto Parser::ParseInlineTable(std::string_view KeyToken) noexcept -> NodeIdx
+  {
+    this->Consume();
+
+      KeyValueNode KeyPayload
+      {
+        .Key = KeyToken,
+        .Value = "",
+        .TypeDisc = 5, // Discriminator for InlineTable
+        ._pad = {}
+      };
+
+      const NodeIdx KeyValueIndx = this->Arena_.EmplaceNode(
+        std::move(KeyPayload)
+      );
+
+      InlineTableNode InlinePayload { .FirstChildIndx = NodeIdx::None };
+      const auto InlineIndx = this->Arena_.EmplaceNode(
+        std::move(InlinePayload)
+      );
+
+      this->Arena_.GetNode(KeyValueIndx).NextSiblingIndx = InlineIndx;
+
+      while
+      (
+        this->Peek() != Token::TokenType::RightBrace &&
+        this->Peek() != Token::TokenType::EndOfFile
+      ) {
+
+        if
+        (
+          this->Peek() != Token::TokenType::Identifier
+        ) this->ReportError(this->Toks_[this->Cursor_], "Expected an identifier");
+
+        const auto PropKeyToken = this->Consume();
+
+        if
+        (
+          this->Peek() != Token::TokenType::Assign
+        ) this->ReportError(this->Toks_[this->Cursor_], "Expected '=' inside inline table.");
+
+        this->Consume();
+
+        NodeIdx PropValueToken = this->ParseValue(PropKeyToken.Sv_Val_);
+
+        auto& A_InlineNode = this->Arena_.GetNode(InlineIndx);
+        auto& InlineData = std::get<InlineTableNode>(A_InlineNode.Payload);
+
+        if
+        (
+          InlineData.FirstChildIndx == NodeIdx::None
+        ) InlineData.FirstChildIndx = PropValueToken;
+
+        else [[
+          /* nullAttr */
+        ]] {
+          NodeIdx Current = InlineData.FirstChildIndx;
+
+          while
+          (
+            this->Arena_.GetNode(Current).NextSiblingIndx != NodeIdx::None
+          ) Current = this->Arena_.GetNode(Current).NextSiblingIndx;
+
+          this->Arena_.GetNode(Current).NextSiblingIndx = PropValueToken;
+        }
+
+        if
+        (
+          this->Peek() == Token::TokenType::Comma
+        ) {
+
+          this->Consume();
+
+          if
+          (
+            this->Peek() == Token::TokenType::RightBrace
+          ) this->ReportError(this->Toks_[this->Cursor_], "Expected another key-value pair");
+
+        }
+
+        else if
+        (
+          this->Peek() == Token::TokenType::RightBrace
+        ) break;
+
+        else [[
+          /* nullAttr */
+        ]] this->ReportError(this->Toks_[this->Cursor_], "Expected ',' or '}' after inline table.");
+
+      }
+
+      if
+      (
+        this->Peek() != Token::TokenType::RightBrace
+      ) this->ReportError(this->Toks_[this->Cursor_], "Unterminated inline table block, missing '}'");
+
+      this->Consume();
+
+      return KeyValueIndx;
+  }
+
+  auto Parser::ParseScalar(std::string_view KeyToken) noexcept -> NodeIdx
+  {
+    const auto& StartValueToken = this->Toks_[this->Cursor_];
+
+    if
+    (
+      StartValueToken.Type == Token::TokenType::EndOfFile ||
+      this->StartOfStatement()
+    ) this->ReportError(StartValueToken, "Missing value assignment after '='");
+
+    const size_t StartOffset = StartValueToken.Lexer_Size_t_Offset_;
+    size_t EndOffset = StartOffset + StartValueToken.Sv_Val_.length();
+
+
+    while
+    (
+      !this->StartOfStatement() &&
+      this->Peek() != Token::TokenType::Comma &&
+      this->Peek() != Token::TokenType::RightBracket &&
+      this->Peek() != Token::TokenType::RightBrace &&
+      this->Peek() != Token::TokenType::EndOfFile
+    ) {
+      const auto& ka_ContentToken_ = this->Consume();
+      EndOffset = ka_ContentToken_.Lexer_Size_t_Offset_ + ka_ContentToken_.Sv_Val_.length();
+    }
+
+    const auto CombinedLength = EndOffset - StartOffset;
+
+    std::string_view ValueView = this->Sv_SourceView_.substr(StartOffset, CombinedLength);
+
+    KeyValueNode ValuePayload
+    {
+      .Key = KeyToken,
+      .Value = ValueView,
+      .TypeDisc = static_cast<std::uint32_t>(StartValueToken.Type),
+      ._pad = {}
+    };
+
+    return this->Arena_.EmplaceNode(
+      std::move(ValuePayload)
+    );
+  }
+
+  auto Parser::ParseValue(std::string_view KeyToken) noexcept -> NodeIdx
+  {
+    if
+    (
+      this->Peek() == Token::TokenType::LeftBrace
+    ) return this->ParseInlineTable(KeyToken);
+
+    else if
+    (
+      this->Peek() == Token::TokenType::LeftBracket
+    ) return this->ParseArray(KeyToken);
+
+    else [[
+      /* nullAttr */
+    ]] return this->ParseScalar(KeyToken);
+  }
+
+  auto Parser::ParseKeyValue() noexcept -> void
+  {
+
+    if
+    (
+      this->LastTableIdx == NodeIdx::None
+    ) this->ReportError(this->Toks_[this->Cursor_], "Key-value pair declared outside of a group block.");
+
+    const auto& KeyToken = this->Consume();
+
+    if
+    (
+      this->Peek() != Token::TokenType::Assign
+    ) this->ReportError(this->Toks_[this->Cursor_], "Expected '=' operator after key identifier");
+
+    this->Consume();
+
+    NodeIdx ValueChainHead = this->ParseValue(KeyToken.Sv_Val_);
+
+    auto& A_TableNode = this->Arena_.GetNode(this->LastTableIdx);
+    auto& TableData = std::get<TableNode>(A_TableNode.Payload);
+
+    if
+    (
+      TableData.FirstChildIndx == NodeIdx::None
+    ) TableData.FirstChildIndx = ValueChainHead;
+
+    else [[
+      /* nullAttr */
+    ]] {
+      NodeIdx Current = TableData.FirstChildIndx;
+
+      while
+      (
+        this->Arena_.GetNode(Current).NextSiblingIndx != NodeIdx::None
+      ) Current = this->Arena_.GetNode(Current).NextSiblingIndx;
+
+      this->Arena_.GetNode(Current).NextSiblingIndx = ValueChainHead;
     }
   }
 
-
   auto Parser::ReceiveToken(const Token::TokenData& Token) noexcept -> void
   {
+
     if
     (
       Token.Type != Token::TokenType::Unknown
@@ -357,23 +578,48 @@ namespace TOML
     else [[
       /* nullAttr */
     ]] this->ReportError(Token, "Encountered unrecognized Lexer Symbol Context");
+
   }
 
   auto Parser::Parse() noexcept -> NodeIdx
   {
+
+    std::size_t _st_LastParsedLine_ {};
     while
     (
       this->Cursor_ < this->Toks_.size() &&
       this->Toks_[this->Cursor_].Type != Token::TokenType::EndOfFile
-    )
-    {
-      if (this->Peek() == Token::TokenType::LeftBracket)
-        this->ParseTable();
-      else if (this->Peek() == Token::TokenType::Identifier)
-        this->ParseKeyValue();
+    ) {
+
+      const auto& Currentotken = this->Toks_[this->Cursor_];
+
+      if
+      (
+        _st_LastParsedLine_ != 0 &&
+        (
+          Currentotken.Lexer_Size_t_Line_ - _st_LastParsedLine_ > 1
+        )
+      ) this->LastTableIdx = this->RootTableIdx;
+
+
+      if
+      (
+        this->Peek() == Token::TokenType::LeftBracket
+      ) this->ParseTable();
+
+      else if
+      (
+        this->Peek() == Token::TokenType::Identifier
+      ) this->ParseKeyValue();
+
       else [[
         /* nullAttr */
       ]] this->ReportError(this->Toks_[this->Cursor_], "Unexpected structural token sequence");
+
+      if
+      (
+        this->Cursor_ > 0
+      ) _st_LastParsedLine_ = this->Toks_[this->Cursor_ - 1].Lexer_Size_t_Line_;
     }
 
     return this->RootTableIdx;
@@ -384,4 +630,3 @@ namespace TOML
     return this->Arena_;
   }
 }
-

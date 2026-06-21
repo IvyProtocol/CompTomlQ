@@ -39,7 +39,19 @@ namespace TOML
       NodeIdx FirstChildIndx { NodeIdx::None };
   };
 
-  using ASTNodePayload = std::variant<KeyValueNode, TableNode, ArrayNode>;
+  class [[
+    /* nullAttr */
+  ]] InlineTableNode {
+    public:
+      NodeIdx FirstChildIndx { NodeIdx::None };
+  };
+
+  using ASTNodePayload = std::variant<
+    KeyValueNode,
+    TableNode,
+    ArrayNode,
+    InlineTableNode
+  >;
 
   class [[
     /* nullAttr */

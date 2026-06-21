@@ -36,6 +36,7 @@ namespace TOML
       auto ParseTable() noexcept -> void;
       auto ParseKeyValue() noexcept -> void;
 
+
     public:
       explicit Parser
       (
@@ -46,6 +47,10 @@ namespace TOML
       auto ReceiveToken(const Token::TokenData& Token) noexcept -> void;
 
       [[nodiscard]] auto Parse() noexcept -> NodeIdx;
+      [[nodiscard]] auto ParseValue(std::string_view KeyToken) noexcept -> NodeIdx;
+      [[nodiscard]] auto ParseArray(std::string_view KeyToken) noexcept -> NodeIdx;
+      [[nodiscard]] auto ParseInlineTable(std::string_view KeyToken) noexcept -> NodeIdx;
+      [[nodiscard]] auto ParseScalar(std::string_view KeyToken) noexcept -> NodeIdx;
       [[nodiscard]] auto GetArena() const noexcept -> const ASTArena&;
   };
 }
