@@ -204,7 +204,17 @@ namespace TOML
 
     else [[
       /* nullAttr*/
-    ]] this->Arena_.GetNode(this->LastTableIdx).NextSiblingIndx = ka_NewTableIdx_;
+    ]] {
+      NodeIdx TailIdx = this->RootTableIdx;
+
+      while
+      (
+        this->Arena_.GetNode(TailIdx).NextSiblingIndx != NodeIdx::None
+      ) TailIdx = this->Arena_.GetNode(TailIdx).NextSiblingIndx;
+
+
+      this->Arena_.GetNode(TailIdx).NextSiblingIndx = ka_NewTableIdx_;
+    }
 
     this->LastTableIdx = ka_NewTableIdx_;
   }

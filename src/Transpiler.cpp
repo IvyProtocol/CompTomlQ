@@ -170,7 +170,7 @@ namespace Transpiler
 
                 else [[
                   /* nullAttr */
-                ]] this->Writer_.Write("export " + ArrDecl + "=(");
+                ]] this->Writer_.Write("export " + ArrDecl + "=( ");
 
 
                 auto ProcessArrayElements = [&](
@@ -321,7 +321,7 @@ namespace Transpiler
                         std::string ElemStr;
                         ElemStr.reserve(ElemPayload.Value.length() + 1);
 
-                        ElemStr.append(ElemPayload.Value).append("");
+                        ElemStr.append(ElemPayload.Value).append(" ");
                         this->Writer_.Write(ElemStr);
                       }
                     }
@@ -413,7 +413,7 @@ namespace Transpiler
 
                       auto ElemIdx = Array.FirstChildIndx;
 
-                      std::string ElemStr = "(";
+                      std::string ElemStr = "( ";
                       while
                       (
                         ElemIdx != TOML::NodeIdx::None
